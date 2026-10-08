@@ -7,7 +7,8 @@ Burada yalnız kayda değer değişiklikler tutulur.
 - **Düzeltme:** menü açılıyor gibi olup hiçbir şey görünmüyordu. Overlay'de tek sayfa ve tek mesaj kuyruğu var; trainer
   da kuruluyken kaos modu trainer sayfasının `ready` mesajını alıp menüyü trainer sayfasında açmaya çalışıyordu. Artık
   her mod yalnız kendi sayfası açıkken mesaj okur/gönderir; F6 gerekirse kaos sayfasını yükler, sayfa `ready`
-  dediğinde menüyü açar, 15 sn içinde cevap gelmezse uyarır (ayrıntı `ChaosMod.log`).
+  dediğinde menüyü açar. 10 sn içinde cevap gelmezse (sayfa yayında değil / internet yok) uyarır ve önceki sayfayı
+  geri yükler: yayında olmayan sayfa GitHub'ın opak 404 sayfasıydı ve oyun ekranını kapatıyordu.
 - F6 artık `GetAsyncKeyState` ile okunuyor (UI girdi modunda da kapanır); sayfa F6'yı ayrıca işlemiyor.
 - Sayfa `ready` mesajında kendini tanıtıyor (`{ app: 'chaos' }`).
 

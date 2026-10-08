@@ -42,7 +42,7 @@ namespace StreamEmber.ChaosMod
         private long _openDeadline;
         private bool _pageTimedOut;
         private readonly Stopwatch _clock = Stopwatch.StartNew();
-        private const long OpenTimeoutMs = 15000;
+        private const long OpenTimeoutMs = 10000;
 
         public ChaosScript()
         {
@@ -236,6 +236,8 @@ namespace StreamEmber.ChaosMod
             {
                 // Second press while waiting: give up
                 _openPending = false;
+                ChaosLog.Info("Menu opening cancelled");
+                if (!Ui.Ready) _page.Release();
                 RDR2.UI.Screen.DisplaySubtitle("Kaos Modu: menü açma iptal edildi.");
                 return;
             }
@@ -264,6 +266,8 @@ namespace StreamEmber.ChaosMod
             _pageTimedOut = true;
             ChaosLog.Warn("The chaos page did not answer within " + OpenTimeoutMs / 1000 + " s: " + _page.Url +
                           " (overlay URL " + OverlayBridge.Url + "). Is GitHub Pages published and the network up?");
+            // An unpublished page is GitHub's opaque 404 page: do not leave it over the game
+            _page.Release();
             RDR2.UI.Screen.DisplaySubtitle("Kaos Modu: menü sayfası yüklenemedi. İnternet bağlantısını ve sayfanın yayında olduğunu kontrol edin (ayrıntı: ChaosMod.log).");
         }
 

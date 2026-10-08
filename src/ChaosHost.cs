@@ -177,6 +177,7 @@ namespace StreamEmber.ChaosMod
         private readonly string _url;
         private readonly string _key;
         private bool _startChecked;
+        private string _previousUrl;   // page shown before Claim, put back by Release
 
         public ChaosPage(string url)
         {
@@ -232,8 +233,20 @@ namespace StreamEmber.ChaosMod
         public void Claim(bool reload)
         {
             string current = OverlayBridge.Url;
+            if (Key(current) != _key) _previousUrl = current;
             ChaosLog.Info((reload ? "Reloading " : "Opening ") + _url + " (overlay showed " + (current ?? "nothing") + ")");
             if (!OverlayBridge.LoadUrl(_url, reload)) Hello();
+        }
+
+        /// <summary>The chaos page did not answer (not published: GitHub shows its own opaque 404 page over the
+        /// game, or no network): put back the page shown before <see cref="Claim"/>, or a blank one.</summary>
+        public void Release()
+        {
+            if (!IsCurrent) return;
+            string back = IsBlank(_previousUrl) ? string.Empty : _previousUrl;
+            _previousUrl = null;
+            ChaosLog.Info("Putting back " + (back.Length == 0 ? "about:blank" : back));
+            OverlayBridge.LoadUrl(back);
         }
 
         private static void Hello()
