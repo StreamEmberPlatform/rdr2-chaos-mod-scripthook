@@ -1,0 +1,130 @@
+<!doctype html>
+<!--
+  StreamEmber Chaos Mod (RDR2) page. Published to GitHub Pages; the chaos script opens it in the StreamEmber overlay.
+  MHud kit from the CDN (jsDelivr, npm @streamemberplatform/mhud@1.3.0). chaos.js: overlay adapter, menu and HUD.
+  Open in a browser with ?demo=1 to see the menu without the game.
+-->
+<html lang="tr" class="mh-nui">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kaos Modu</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@streamemberplatform/mhud@1.3.0/kit/css/mhud.css">
+<link rel="stylesheet" href="chaos.css">
+</head>
+<body class="mh" data-mh-theme="frontier">
+<div class="mh-screen" id="screen">
+
+  <!-- HUD: toasts and the running effects (top right) -->
+  <div class="mh-anchor mh-tr x-hud">
+    <div class="mh-toasts" data-mh="toasts"></div>
+    <div class="x-active" id="hud-active"></div>
+    <div class="x-auto mh-hidden" id="hud-auto"></div>
+  </div>
+
+  <!-- Menu (F6) -->
+  <div class="mh-layer mh-catch mh-hidden" id="menu-layer">
+    <div class="mh-scrim mh-scrim--soft"></div>
+    <section class="mh-panel mh-menu x-menu" style="--w:1240px;--h:760px">
+      <header class="mh-menu__head">
+        <div class="mh-menu__title">
+          <span class="mh-kicker mh-kicker--accent">StreamEmber · Red Dead Redemption 2</span>
+          <span class="mh-title">Kaos Modu</span>
+        </div>
+        <div class="mh-menu__stats">
+          <div class="mh-stat"><span class="mh-kicker">Efekt</span><b id="stat-total">0</b></div>
+          <div class="mh-stat"><span class="mh-kicker">Aktif</span><b id="stat-active">0</b></div>
+          <div class="mh-stat"><span class="mh-kicker">Otomatik</span><b id="stat-auto">Kapalı</b></div>
+        </div>
+        <button class="mh-btn mh-btn--ghost" id="menu-close"><span class="mh-key" id="close-key">ESC</span>Kapat</button>
+      </header>
+
+      <div class="mh-menu__body" id="menu-body">
+        <nav class="mh-menu__nav" id="nav"></nav>
+
+        <!-- Effect list -->
+        <div class="mh-menu__main" id="panel-list">
+          <div class="mh-menu__toolbar">
+            <div class="mh-input-wrap x-search"><i data-i="search"></i><input class="mh-input" id="search" placeholder="Efekt ara…" autocomplete="off"></div>
+            <div class="mh-seg" id="filter">
+              <button class="is-active" data-f="all">Hepsi</button>
+              <button data-f="instant">Anlık</button>
+              <button data-f="timed">Süreli</button>
+            </div>
+            <button class="mh-btn mh-btn--sm mh-btn--outline x-push" id="random"><i data-i="dice"></i>Rastgele</button>
+          </div>
+          <div class="mh-list mh-scroll x-list" id="list"></div>
+        </div>
+
+        <!-- Running effects -->
+        <div class="mh-menu__main mh-hidden" id="panel-active">
+          <div class="mh-menu__toolbar">
+            <span class="mh-title mh-title--sm">Çalışan efektler</span>
+            <button class="mh-btn mh-btn--sm mh-btn--tone mh-t-danger x-push" id="stop-all"><i data-i="stop"></i>Hepsini durdur</button>
+          </div>
+          <div class="mh-list mh-scroll x-list" id="active-list"></div>
+        </div>
+
+        <!-- Settings -->
+        <div class="mh-menu__main mh-hidden mh-scroll" id="panel-settings">
+          <div class="mh-setting">
+            <div class="mh-setting__text"><b>Otomatik mod</b><span>Belirlenen aralıkla rastgele bir efekt çalışır (orijinal kaos modu gibi).</span></div>
+            <div class="mh-setting__control"><label class="mh-toggle"><input type="checkbox" id="set-auto"><span class="mh-toggle__track"></span></label></div>
+          </div>
+          <div class="mh-setting">
+            <div class="mh-setting__text"><b>Otomatik aralık</b><span>İki rastgele efekt arasındaki süre. Total Chaos açıkken 15 sn.</span></div>
+            <div class="mh-setting__control"><input type="range" class="mh-slider" id="set-interval" min="10" max="300" step="5" value="45"><b id="set-interval-out">45 sn</b></div>
+          </div>
+          <div class="mh-setting">
+            <div class="mh-setting__text"><b>Deneysel efektler</b><span>Onur efektleri oyun sürümüne bağlı script global'lerine yazar (1.0.1311 / 1436 için bulunmuş). Güncel sürümde doğrulanmadı.</span></div>
+            <div class="mh-setting__control"><label class="mh-toggle"><input type="checkbox" id="set-exp"><span class="mh-toggle__track"></span></label></div>
+          </div>
+          <div class="mh-setting">
+            <div class="mh-setting__text"><b>Oluşturulanları temizle</b><span>Efektlerin yarattığı NPC, araç ve nesneleri siler (bindiğin hariç).</span></div>
+            <div class="mh-setting__control"><button class="mh-btn mh-btn--sm mh-btn--outline" id="cleanup"><i data-i="refresh"></i>Temizle</button></div>
+          </div>
+          <div class="mh-setting">
+            <div class="mh-setting__text"><b>Bütün efektleri durdur</b><span>Süreli efektleri hemen bitirir; kamera, hava ve oyuncu modeli geri gelir.</span></div>
+            <div class="mh-setting__control"><button class="mh-btn mh-btn--sm mh-btn--tone mh-t-danger" id="stop-all-2"><i data-i="stop"></i>Durdur</button></div>
+          </div>
+        </div>
+
+        <!-- Preview -->
+        <aside class="mh-menu__aside" id="aside">
+          <div class="mh-preview x-preview" id="pv-art"></div>
+          <div>
+            <div class="mh-title mh-title--lg" id="pv-name">Efekt seç</div>
+            <div class="mh-sub" id="pv-cat"></div>
+          </div>
+          <div class="x-badges" id="pv-badges"></div>
+          <p class="x-desc" id="pv-desc">Soldan bir kategori, ortadan bir efekt seç.</p>
+          <div class="x-running mh-hidden" id="pv-running">
+            <div class="mh-flex mh-between"><span class="mh-kicker">Kalan süre</span><b id="pv-left">0 sn</b></div>
+            <div class="mh-bar mh-bar--sm mh-t-accent" id="pv-bar"><i class="mh-bar__fill"></i></div>
+          </div>
+          <div class="mh-col mh-gap-2 x-actions">
+            <button class="mh-btn mh-btn--primary mh-btn--block" id="pv-run" disabled><span class="mh-key mh-key--sm">ENTER</span>Çalıştır</button>
+            <button class="mh-btn mh-btn--tone mh-t-danger mh-btn--block mh-hidden" id="pv-stop"><i data-i="stop"></i>Durdur</button>
+          </div>
+        </aside>
+      </div>
+
+      <footer class="mh-menu__foot">
+        <div class="mh-hints">
+          <span class="mh-hint"><span class="mh-key">↑</span><span class="mh-key">↓</span>Seç</span>
+          <span class="mh-hint"><span class="mh-key">←</span><span class="mh-key">→</span>Kategori</span>
+          <span class="mh-hint"><span class="mh-key">ENTER</span>Çalıştır</span>
+          <span class="mh-hint"><span class="mh-key">ÇİFT TIK</span>Çalıştır</span>
+          <span class="mh-hint"><span class="mh-key">ESC</span>Kapat</span>
+        </div>
+        <span class="mh-mute x-version" id="version"></span>
+      </footer>
+    </section>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@streamemberplatform/mhud@1.3.0/kit/js/mhud-icons.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@streamemberplatform/mhud@1.3.0/kit/js/mhud.js"></script>
+<script src="chaos.js"></script>
+</body>
+</html>

@@ -1,0 +1,163 @@
+# StreamEmber Chaos Mod (RDR2) — derleme, paket, otomatik release ve sayfa yayını.
+#
+#   pull request / diğer dallar  → derle, paket artifact olarak yüklenir (sürüm 1.0.N-ci.<run>)
+#   main'e her push              → derle, v1.0.N etiketi ve GitHub Release (StreamEmber.ChaosMod.RDR2-1.0.N.zip + sha256),
+#                                  web/ klasörü GitHub Pages'e yayınlanır:
+#                                  https://streamemberplatform.github.io/rdr2-chaos-mod-scripthook/
+#
+# Derleme başvuruları (pakete girmez): StreamEmber.Scripting.RDR2.dll ve StreamEmber.Overlay.Bridge.dll, kendi
+# repolarımızın (rdr2-runtime-scripthook, ui-runtime) SON release'inden indirilir ve sha256 ile doğrulanır.
+# Kaos modu StreamEmber Runtime (RDR2) 1.1 API'sine ihtiyaç duyar: runtime'ın v1.1.x release'i çıkmadan derleme hata verir.
+# Sayfa için bir kez: Settings > Pages > Build and deployment > Source = "GitHub Actions".
+#
+# Sürüm: VERSION dosyası (major.minor) + o dosyanın son değiştiği commit'ten bu yana commit sayısı (patch).
+# Minör/majör artırmak = VERSION'ı değiştirip pushlamak (o commit x.y.0 olur). Ayrıntı: tools/StreamEmber.Build.psm1
+name: Build
+
+on:
+  push:
+    branches: ['**']
+    paths-ignore: ['**/*.md', 'docs/**', '.github/dependabot.yml']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  build:
+    runs-on: windows-2025
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      release: ${{ steps.version.outputs.release }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # patch numarası git geçmişinden hesaplanır
+
+      - name: Sürüm
+        id: version
+        shell: pwsh
+        run: |
+          Import-Module ./tools/StreamEmber.Build.psm1
+          $release = ('${{ github.ref }}' -eq 'refs/heads/main') -and ('${{ github.event_name }}' -ne 'pull_request')
+          $kind = if ($release) { 'Release' } else { 'CI' }
+          $version = Get-SEVersion -RepositoryRoot . -Kind $kind -RunNumber '${{ github.run_number }}'
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "release=$($release.ToString().ToLower())" >> $env:GITHUB_OUTPUT
+          Write-Host "Sürüm: $version (release: $release)"
+
+      - name: Derleme başvuruları (runtime ve overlay'in son release'leri)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $refs = New-Item -ItemType Directory -Force -Path _deps/refs
+          $sources = @(
+            @{ Repo = 'StreamEmberPlatform/rdr2-runtime-scripthook'; Id = 'StreamEmber.Runtime.RDR2'; File = 'StreamEmber/Runtime/StreamEmber.Scripting.RDR2.dll' },
+            @{ Repo = 'StreamEmberPlatform/ui-runtime'; Id = 'StreamEmber.Overlay.RDR2'; File = 'StreamEmber/Scripts/StreamEmber.Overlay.Bridge.dll' })
+          foreach ($s in $sources) {
+            $dir = "_deps/releases/$($s.Id)"
+            gh release download --repo $s.Repo --pattern "$($s.Id)-*" --dir $dir --clobber
+            if ($LASTEXITCODE -ne 0) { throw "$($s.Repo): release indirilemedi (o repoda en az bir release olmalı)." }
+            $zip = Get-ChildItem $dir -Filter "$($s.Id)-*.zip" | Select-Object -First 1
+            $expected = (Get-Content "$($zip.FullName).sha256" -Raw).Trim().Split(' ')[0]
+            $actual = (Get-FileHash $zip.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actual -ne $expected) { throw "$($zip.Name): SHA-256 tutmuyor ($actual != $expected)" }
+            Expand-Archive $zip.FullName -DestinationPath "$dir/content" -Force
+            Copy-Item (Join-Path "$dir/content" $s.File) $refs
+            Write-Host "$($zip.Name) -> $(Split-Path $s.File -Leaf)"
+          }
+
+      - name: Derle ve paketle
+        shell: pwsh
+        run: ./build.ps1 -Version '${{ steps.version.outputs.version }}' -ReferenceDir _deps/refs
+
+      - name: Paket içeriği kontrolü
+        shell: pwsh
+        run: |
+          $stage = 'dist/RDR2'
+          $expected = @('StreamEmber/Scripts/StreamEmber.ChaosMod.RDR2.dll', 'StreamEmber/Config/ChaosMod.ini',
+                        'StreamEmber/Manifests/StreamEmber.ChaosMod.RDR2.json')
+          foreach ($f in $expected) { if (-not (Test-Path (Join-Path $stage $f))) { throw "Pakette yok: $f" } }
+          $unwanted = Get-ChildItem $stage -Recurse -File | Where-Object {
+            $_.Extension -in '.pdb', '.xml' -or $_.Name -in 'StreamEmber.Overlay.Bridge.dll', 'StreamEmber.Scripting.RDR2.dll' }
+          if ($unwanted) { throw "Pakette istenmeyen dosya: $($unwanted.Name -join ', ')" }
+          Get-ChildItem $stage -Recurse -File | ForEach-Object { $_.FullName.Substring((Resolve-Path $stage).Path.Length + 1) }
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: StreamEmber.ChaosMod.RDR2-${{ steps.version.outputs.version }}
+          path: |
+            artifacts/*.zip
+            artifacts/*.sha256
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: needs.build.outputs.release == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    concurrency:
+      group: release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: StreamEmber.ChaosMod.RDR2-${{ needs.build.outputs.version }}
+          path: artifacts
+
+      - name: Etiket zaten var mı? (aynı commit'in yeniden çalıştırılması)
+        id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "v${{ needs.build.outputs.version }}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::v${{ needs.build.outputs.version }} zaten yayında; atlanıyor."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: GitHub Release
+        if: steps.tag.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: v${{ needs.build.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          name: StreamEmber Chaos Mod (RDR2) ${{ needs.build.outputs.version }}
+          generate_release_notes: true
+          make_latest: true
+          files: |
+            artifacts/*.zip
+            artifacts/*.sha256
+
+  pages:
+    needs: build
+    if: needs.build.outputs.release == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: true
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/configure-pages@v6
+      - name: Sayfa sürümü
+        run: echo "${{ needs.build.outputs.version }}" > web/version.txt
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: web
+      - id: deployment
+        uses: actions/deploy-pages@v5

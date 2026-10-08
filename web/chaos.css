@@ -1,0 +1,45 @@
+/* StreamEmber Chaos Mod — additions on top of MHud. Colors only through MHud tokens. */
+
+/* HUD (top right): toasts, then the running effects */
+.x-hud { width: 340px; align-items: stretch; gap: 10px; z-index: 900; }
+.x-active { display: flex; flex-direction: column; gap: 6px; }
+.x-chip {
+  display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 4px 10px;
+  padding: 8px 12px; border-radius: var(--mh-r-control);
+  background: rgb(var(--mh-surface-rgb) / .78); border: 1px solid var(--mh-line-soft); box-shadow: var(--mh-hud-shadow);
+  transition: opacity .3s, transform .3s;
+}
+.x-chip.is-instant { opacity: .85; }
+.x-chip.is-leaving { opacity: 0; transform: translateX(16px); }
+.x-chip__icon { grid-row: span 2; display: grid; place-items: center; width: 28px; height: 28px; color: var(--mh-accent); }
+.x-chip__icon .mh-i { width: 20px; height: 20px; }
+.x-chip.is-meta .x-chip__icon { color: rgb(var(--mh-gold-rgb)); }
+.x-chip__name { font-size: 13px; font-weight: 600; color: var(--mh-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.x-chip__time { font-size: 12px; color: var(--mh-text-2); font-variant-numeric: tabular-nums; }
+.x-chip .mh-bar { grid-column: 2 / span 2; }
+.x-auto { font-size: 12px; color: var(--mh-text-2); text-align: right; padding: 0 4px; }
+
+/* Menu */
+#menu-layer { z-index: 1000; display: grid; place-items: center; }
+.x-menu .mh-menu__body { --nav: 220px; --aside: 330px; flex: 1; min-height: 0; }
+.x-search { width: 300px; }
+.x-push { margin-left: auto; }
+.x-list { flex: 1; min-height: 0; }
+.x-list .mh-row { cursor: pointer; user-select: none; }
+.x-list .mh-row__meta { display: flex; gap: 6px; align-items: center; }
+.x-empty { padding: 32px; text-align: center; color: var(--mh-text-3); font-size: 13px; }
+.x-nav-count { margin-left: auto; font-size: 12px; color: var(--mh-text-3); font-variant-numeric: tabular-nums; }
+
+.x-preview { display: grid; place-items: center; min-height: 150px; color: var(--mh-accent); }
+.x-preview .mh-i { width: 84px; height: 84px; }
+.x-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.x-desc { margin: 0; font-size: 14px; line-height: 1.5; color: var(--mh-text-2); }
+.x-running { display: flex; flex-direction: column; gap: 8px; }
+.x-actions { margin-top: auto; }
+.x-version { font-size: 12px; }
+
+/* Running-effects panel rows */
+.x-active-row .mh-row__main { gap: 6px; }
+.x-active-row .mh-bar { width: 100%; }
+.x-list .mh-row.x-locked { opacity: .55; }
+body.x-menu-open .x-active, body.x-menu-open .x-auto { opacity: 0; transition: opacity .2s; }

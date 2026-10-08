@@ -1,0 +1,14 @@
+# Build outputs
+/build/
+/dist/
+/artifacts/
+bin/
+obj/
+
+# CI downloads
+/_deps/
+
+# IDE
+.vs/
+*.user
+.vscode/
