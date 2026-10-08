@@ -3,6 +3,12 @@
 //   F6 (ChaosMod.ini MenuKey)  open / close the chaos menu. While it is open the mouse and keyboard go to the page:
 //                              pick a category, click an effect, "Çalıştır". Esc or F6 closes it.
 //
+// The menu key is read with GetAsyncKeyState every tick: in UI input mode the overlay keeps the key messages from
+// the game, so KeyDown would never see the key that closes the menu (same as the trainers).
+//
+// One overlay page for all scripts: the chaos mod talks to the overlay only while its own page is shown (ChaosPage).
+// With the trainer installed as well, whichever opens first keeps the overlay; F6 switches it to the chaos page.
+//
 // No other hotkeys and no integrations in this version: every effect starts from the menu (or from the optional
 // automatic mode / Total Chaos). EventFabric will call ChaosEngine.Run(id, "eventfabric") later.
 //
@@ -10,7 +16,8 @@
 // page -> C# { cb, data } through window.streamember.post: ready, run, stop, stopAll, random, cleanup, setting, close.
 using System;
 using System.Collections.Generic;
-using System.Windows.Forms;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 using RDR2;
 using StreamEmber.Overlay;
 using StreamEmber.Trainers;
@@ -28,6 +35,14 @@ namespace StreamEmber.ChaosMod
         private bool _menuOpen;
         private bool _announcedNotInstalled;
         private bool _wasDead;
+        private bool _menuKeyDown;
+        private IntPtr _gameWindow;
+        // Menu requested before the page said "ready": opened when it does, or reported after the deadline
+        private bool _openPending;
+        private long _openDeadline;
+        private bool _pageTimedOut;
+        private readonly Stopwatch _clock = Stopwatch.StartNew();
+        private const long OpenTimeoutMs = 15000;
 
         public ChaosScript()
         {
@@ -47,7 +62,6 @@ namespace StreamEmber.ChaosMod
             ChaosLog.Info("StreamEmber Chaos Mod (RDR2) " + ChaosPage.ProductVersion + ", " + _registry.All.Count + " effects, page " + _page.Url);
 
             Tick += OnTick;
-            KeyDown += OnKeyDown;
             Aborted += (s, e) => Guard.Run("Shutdown", Shutdown);
         }
 
@@ -76,7 +90,17 @@ namespace StreamEmber.ChaosMod
 
             if (state == OverlayState.Ready)
             {
-                Guard.Run("Messages", ReadMessages);
+                if (_page.IsCurrent)
+                {
+                    Guard.Run("Messages", ReadMessages);
+                }
+                else if (Ui.Ready || _menuOpen)
+                {
+                    // Another script (the trainer) loaded its page: it owns the overlay and its input mode now
+                    ChaosLog.Info("The overlay switched to " + OverlayBridge.Url + "; chaos menu detached");
+                    Ui.Ready = false;
+                    _menuOpen = false;
+                }
             }
 
             int ped = Fx.PlayerPed;
@@ -93,8 +117,11 @@ namespace StreamEmber.ChaosMod
             // The page is opened once the player is in the world (see the trainers: nothing heavy while loading)
             if (state == OverlayState.Ready && !busy)
             {
-                _page.Ensure();
+                _page.EnsureStartup();
             }
+
+            Guard.Run("MenuKey", PollMenuKey);
+            if (_openPending) Guard.Run("PendingMenu", CheckPendingOpen);
 
             if (_menuOpen && OverlayBridge.InputMode == OverlayInputMode.Ui)
             {
@@ -117,10 +144,19 @@ namespace StreamEmber.ChaosMod
                 switch (cb)
                 {
                     case "ready":
+                        // Only the chaos page (a late message of the previous page must not count)
+                        if (data?.Str("app") != "chaos") break;
                         Ui.Ready = true;
+                        _pageTimedOut = false;
+                        ChaosLog.Info("Chaos page ready");
                         SendInit();
                         SendMenuState();
                         _engine.MarkDirty();
+                        if (_openPending)
+                        {
+                            _openPending = false;
+                            SetMenu(true);
+                        }
                         break;
                     case "run":
                         if (CanRunEffects()) _engine.Run(data?.Str("id"), "menu");
@@ -180,22 +216,76 @@ namespace StreamEmber.ChaosMod
             SendSettings();
         }
 
-        private void OnKeyDown(object sender, KeyEventArgs e)
+        /// <summary>Menu key edge, read from the keyboard state (works in both input modes), only while the game
+        /// window has the focus.</summary>
+        private void PollMenuKey()
         {
-            Guard.Run("KeyDown", () =>
+            bool down = (GetAsyncKeyState((int)_config.MenuKey) & 0x8000) != 0;
+            if (down && !_menuKeyDown && IsGameFocused()) ToggleMenu();
+            _menuKeyDown = down;
+        }
+
+        private void ToggleMenu()
+        {
+            if (_menuOpen)
             {
-                if (e.KeyCode == _config.MenuKey) SetMenu(!_menuOpen);
-            });
+                SetMenu(false);
+                return;
+            }
+            if (_openPending)
+            {
+                // Second press while waiting: give up
+                _openPending = false;
+                RDR2.UI.Screen.DisplaySubtitle("Kaos Modu: menü açma iptal edildi.");
+                return;
+            }
+            if (OverlayBridge.State != OverlayState.Ready)
+            {
+                ChaosLog.Warn("Menu key pressed, overlay state " + OverlayBridge.State);
+                RDR2.UI.Screen.DisplaySubtitle("Kaos Modu: StreamEmber Overlay hazır değil (" + OverlayBridge.State + ").");
+                return;
+            }
+            if (Ui.Ready && _page.IsCurrent)
+            {
+                SetMenu(true);
+                return;
+            }
+            // Page not shown (another script's page or still blank) or it never answered: open it, then the menu
+            _page.Claim(_page.IsCurrent && _pageTimedOut);
+            _openPending = true;
+            _openDeadline = _clock.ElapsedMilliseconds + OpenTimeoutMs;
+            RDR2.UI.Screen.DisplaySubtitle("Kaos Modu: menü yükleniyor...");
+        }
+
+        private void CheckPendingOpen()
+        {
+            if (_clock.ElapsedMilliseconds < _openDeadline) return;
+            _openPending = false;
+            _pageTimedOut = true;
+            ChaosLog.Warn("The chaos page did not answer within " + OpenTimeoutMs / 1000 + " s: " + _page.Url +
+                          " (overlay URL " + OverlayBridge.Url + "). Is GitHub Pages published and the network up?");
+            RDR2.UI.Screen.DisplaySubtitle("Kaos Modu: menü sayfası yüklenemedi. İnternet bağlantısını ve sayfanın yayında olduğunu kontrol edin (ayrıntı: ChaosMod.log).");
+        }
+
+        private bool IsGameFocused()
+        {
+            if (_gameWindow == IntPtr.Zero) _gameWindow = Process.GetCurrentProcess().MainWindowHandle;
+            IntPtr foreground = GetForegroundWindow();
+            if (foreground == _gameWindow) return true;
+            // The main window handle can change once (splash -> game window): accept our own process' window
+            GetWindowThreadProcessId(foreground, out uint pid);
+            if (pid != (uint)Process.GetCurrentProcess().Id) return false;
+            _gameWindow = foreground;
+            return true;
         }
 
         private void SetMenu(bool open)
         {
             if (_menuOpen == open) return;
-            if (open && !Ui.Ready)
+            if (open && !(Ui.Ready && _page.IsCurrent))
             {
                 // Without the page the UI input mode would swallow every key (only the overlay's F8 gets out)
                 ChaosLog.Warn("Menu requested but the chaos page is not ready (" + _page.Url + ")");
-                RDR2.UI.Screen.DisplaySubtitle("Kaos Modu: menü sayfası henüz yüklenmedi (internet bağlantısını ve StreamEmber Overlay'i kontrol edin).");
                 return;
             }
             _menuOpen = open;
@@ -208,6 +298,7 @@ namespace StreamEmber.ChaosMod
             {
                 OverlayBridge.InputMode = OverlayInputMode.Game;
             }
+            ChaosLog.Info(open ? "Menu open" : "Menu closed");
             SendMenuState();
         }
 
@@ -280,5 +371,14 @@ namespace StreamEmber.ChaosMod
             if (_menuOpen) OverlayBridge.InputMode = OverlayInputMode.Game;
             ChaosLog.Info("Shutdown");
         }
+
+        [DllImport("user32.dll")]
+        private static extern short GetAsyncKeyState(int key);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
     }
 }

@@ -3,6 +3,14 @@
 Sürümler `VERSION` (major.minor) + commit sayısı (patch) ile otomatik verilir; her `main` push'u bir sürümdür.
 Burada yalnız kayda değer değişiklikler tutulur.
 
+## 1.0 (düzeltmeler)
+- **Düzeltme:** menü açılıyor gibi olup hiçbir şey görünmüyordu. Overlay'de tek sayfa ve tek mesaj kuyruğu var; trainer
+  da kuruluyken kaos modu trainer sayfasının `ready` mesajını alıp menüyü trainer sayfasında açmaya çalışıyordu. Artık
+  her mod yalnız kendi sayfası açıkken mesaj okur/gönderir; F6 gerekirse kaos sayfasını yükler, sayfa `ready`
+  dediğinde menüyü açar, 15 sn içinde cevap gelmezse uyarır (ayrıntı `ChaosMod.log`).
+- F6 artık `GetAsyncKeyState` ile okunuyor (UI girdi modunda da kapanır); sayfa F6'yı ayrıca işlemiyor.
+- Sayfa `ready` mesajında kendini tanıtıyor (`{ app: 'chaos' }`).
+
 ## 1.0
 - İlk sürüm: ChaosModRDR'nin 187 efektinin tamamı C# ile (oyuncu 71, NPC 53, dünya 43, araç 18, meta 2).
 - Entegrasyon yok: efektler yalnız menüden (F6) tıklanarak çalışır; isteğe bağlı otomatik mod (varsayılan kapalı).

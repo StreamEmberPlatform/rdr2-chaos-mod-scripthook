@@ -16,6 +16,8 @@ RDR2.exe
 ## Kullanım
 
 - **F6** menüyü açar/kapatır (`ChaosMod.ini` → `MenuKey`). Menü açıkken fare ve klavye sayfaya gider.
+- Overlay'de aynı anda tek sayfa açık olur. StreamEmber Trainer da kuruluysa hangisinin tuşuna basılırsa (F5 / F6)
+  overlay o modun sayfasına geçer; diğeri o sırada sessizce bekler.
 - Soldan kategori (Oyuncu, NPC, Dünya, Araç, Meta), ortadan efekt; **Çalıştır**, **Enter** ya da **çift tık**.
   Arama kutusu bütün kategorilerde arar; *Anlık / Süreli* filtresi var.
 - Süreli bir efekt zaten çalışıyorsa yeniden çalıştırmak süresini yeniler; önizlemede **Durdur** ile bitirilir.

@@ -5,7 +5,7 @@
  *   page -> game: MH.post(name, data) -> window.streamember.post({ cb: name, data }).
  *
  * Messages from the game: chaos:init (effects, settings, theme), chaos:menu { open }, chaos:active { items, auto },
- * chaos:toast, chaos:settings, chaos:hello. To the game: ready, run { id }, stop { id }, stopAll, random, cleanup,
+ * chaos:toast, chaos:settings, chaos:hello. To the game: ready { app: 'chaos' }, run { id }, stop { id }, stopAll, random, cleanup,
  * setting { key, value }, close.
  * Without the overlay (a normal browser) ?demo=1 fills the page with sample data.
  */
@@ -325,7 +325,10 @@
 
   document.addEventListener('keydown', function (e) {
     if (!state.open) return;
-    if (e.key === 'Escape' || e.key === state.menuKey || e.keyCode === state.menuKeyCode) {
+    // In game the script polls the menu key itself (it toggles the menu in both input modes); posting 'close' here
+    // as well would race with it and reopen the menu. The browser preview has no script, so it handles the key.
+    var menuKey = !bridge && (e.key === state.menuKey || e.keyCode === state.menuKeyCode);
+    if (e.key === 'Escape' || menuKey) {
       e.preventDefault();
       if (document.activeElement === $('#search') && state.query && e.key === 'Escape') {
         $('#search').value = '';
@@ -410,10 +413,10 @@
     MH.toast({ tone: d.tone || 'info', title: d.title, text: d.text, icon: d.icon, duration: 3500, max: 4 });
   });
 
-  MH.on('chaos:hello', function () { MH.post('ready'); });
+  MH.on('chaos:hello', function () { MH.post('ready', { app: 'chaos' }); });
 
   setView('player');
-  MH.post('ready');
+  MH.post('ready', { app: 'chaos' });
 
   /* ---------------- Demo (browser without the overlay) ---------------- */
   function demoPost(name, data) {

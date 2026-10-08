@@ -2,7 +2,7 @@
 //   ChaosPaths   <game>\StreamEmber\...
 //   ChaosLog     <game>\StreamEmber\Logs\ChaosMod.log, errors throttled
 //   ChaosConfig  <game>\StreamEmber\Config\ChaosMod.ini
-//   ChaosPage    asks the overlay to open the chaos page (published on GitHub Pages, MHud kit from the CDN)
+//   ChaosPage    the chaos page in the overlay (GitHub Pages, MHud kit from the CDN) and whether it is the current page
 //   Guard        runs one part of a tick; an exception is logged and only that part is skipped
 using System;
 using System.Collections.Generic;
@@ -166,10 +166,17 @@ namespace StreamEmber.ChaosMod
     }
 
     /// <summary>Opens the chaos page in the overlay once the overlay runs.</summary>
+    /// <summary>
+    /// The overlay has one page and one message queue for every script. The trainer and the chaos mod each have their
+    /// own page, so the page decides who talks to the overlay: a script reads messages and sends only while its own
+    /// page is the current one (<see cref="IsCurrent"/>). At startup the page is opened only when the overlay shows
+    /// nothing yet; otherwise it is opened by the menu key (<see cref="Claim"/>).
+    /// </summary>
     internal sealed class ChaosPage
     {
         private readonly string _url;
-        private bool _requested;
+        private readonly string _key;
+        private bool _startChecked;
 
         public ChaosPage(string url)
         {
@@ -178,6 +185,7 @@ namespace StreamEmber.ChaosMod
             _url = url.IndexOf('?') < 0 && url.StartsWith("http", StringComparison.OrdinalIgnoreCase) && version != null
                 ? url + "?v=" + Uri.EscapeDataString(version)
                 : url;
+            _key = Key(_url);
         }
 
         public string Url => _url;
@@ -192,18 +200,61 @@ namespace StreamEmber.ChaosMod
             }
         }
 
-        /// <summary>Call every tick while the overlay is ready.</summary>
-        public void Ensure()
+        /// <summary>True while the overlay shows the chaos page (any version of it).</summary>
+        public bool IsCurrent => Key(OverlayBridge.Url) == _key;
+
+        /// <summary>Call every tick once the player is in the world. Opens the page only if the overlay is still
+        /// blank, so another script's page (the trainer) is not replaced at startup.</summary>
+        public void EnsureStartup()
         {
-            if (_requested) return;
-            _requested = true;
-            ChaosLog.Info("Opening " + _url);
-            if (!OverlayBridge.LoadUrl(_url))
+            if (_startChecked) return;
+            _startChecked = true;
+            string current = OverlayBridge.Url;
+            if (IsBlank(current))
+            {
+                ChaosLog.Info("Opening " + _url);
+                OverlayBridge.LoadUrl(_url);
+            }
+            else if (Key(current) == _key)
             {
                 // Already open (scripts reloaded while the game kept running): ask the page to announce itself again
-                Ui.Begin("chaos:hello").BeginObject().EndObject();
-                Ui.Send();
+                ChaosLog.Info("Chaos page already open, asking it for ready");
+                Hello();
             }
+            else
+            {
+                ChaosLog.Info("The overlay shows " + current + "; the chaos page opens with the menu key");
+            }
+        }
+
+        /// <summary>Opens the chaos page now (menu key). <paramref name="reload"/> loads it again even if it is the
+        /// current page (it did not answer: network error or not published).</summary>
+        public void Claim(bool reload)
+        {
+            string current = OverlayBridge.Url;
+            ChaosLog.Info((reload ? "Reloading " : "Opening ") + _url + " (overlay showed " + (current ?? "nothing") + ")");
+            if (!OverlayBridge.LoadUrl(_url, reload)) Hello();
+        }
+
+        private static void Hello()
+        {
+            Ui.Begin("chaos:hello").BeginObject().EndObject();
+            Ui.Send();
+        }
+
+        private static bool IsBlank(string url) =>
+            string.IsNullOrEmpty(url) || url.Equals("about:blank", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>URL without query, fragment and trailing slash, lower case: ?v= and in-page anchors do not matter.</summary>
+        public static string Key(string url)
+        {
+            if (string.IsNullOrEmpty(url)) return string.Empty;
+            string key = url.Trim();
+            int cut = key.IndexOfAny(new[] { '?', '#' });
+            if (cut >= 0) key = key.Substring(0, cut);
+            key = key.TrimEnd('/');
+            if (key.EndsWith("/index.html", StringComparison.OrdinalIgnoreCase)) key = key.Substring(0, key.Length - 11);
+            return key.ToLowerInvariant();
         }
     }
 
