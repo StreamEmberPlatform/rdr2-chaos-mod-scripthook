@@ -4,6 +4,9 @@ Sürümler `VERSION` (major.minor) + commit sayısı (patch) ile otomatik verili
 Burada yalnız kayda değer değişiklikler tutulur.
 
 ## 1.0 (düzeltmeler)
+- **Düzeltme:** trainer'dan sonra açılan kaos menüsü ekrandan taşacak kadar büyüyordu. Trainer'ın isim etiketleri
+  overlay görünümünü ekranın altına uzatıyor (sprite atlası); kaos modu bu atlası kapatıyor, sayfa da ölçeği
+  genişlik/yükseklikten küçük olana göre hesaplıyor. Menü ekran kenarlarına 24 px'ten fazla yaklaşmıyor.
 - **Menü sayfası artık modla birlikte kuruluyor** (`StreamEmber\UI\ChaosMod\`) ve oyun klasöründen açılıyor; GitHub
   Pages kaldırıldı. Yalnız MHud kitinin css/js dosyaları jsDelivr CDN'inden. `ChaosMod.ini` → `UiUrl` boşsa yerel sayfa.
 - **Düzeltme:** menü açılıyor gibi olup hiçbir şey görünmüyordu. Overlay'de tek sayfa ve tek mesaj kuyruğu var; trainer

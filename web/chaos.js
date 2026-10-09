@@ -49,7 +49,18 @@
   };
   var demo = !bridge && /[?&]demo=1/.test(location.search);
 
-  MH.autoScale();
+  // Scale like MHud (1080p design), but by whichever side is tighter: the overlay view can be taller than the screen
+  // (another mod's sprite atlas below it), and only the width still matches the screen then. A plain innerHeight
+  // base made the menu ~1.6x too large and pushed it off screen.
+  (function () {
+    var root = document.documentElement;
+    function apply() {
+      var z = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+      root.style.zoom = z > 0 ? z : 1;
+    }
+    apply();
+    window.addEventListener('resize', apply);
+  })();
 
   /* ---------------- Helpers ---------------- */
   function esc(s) { return MH.esc(s == null ? '' : String(s)); }

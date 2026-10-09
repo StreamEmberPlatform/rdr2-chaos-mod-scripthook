@@ -21,6 +21,7 @@
 
 /* Menu */
 #menu-layer { z-index: 1000; display: grid; place-items: center; }
+.x-menu { max-width: calc(100vw - 48px); max-height: calc(100vh - 48px); }
 .x-menu .mh-menu__body { --nav: 220px; --aside: 330px; flex: 1; min-height: 0; }
 .x-search { width: 300px; }
 .x-push { margin-left: auto; }

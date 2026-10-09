@@ -41,6 +41,7 @@ namespace StreamEmber.ChaosMod
         private bool _pageTimedOut;
         private readonly Stopwatch _clock = Stopwatch.StartNew();
         private const long OpenTimeoutMs = 10000;
+        private long _nextAtlasCheck;
 
         public ChaosScript()
         {
@@ -91,6 +92,12 @@ namespace StreamEmber.ChaosMod
                 if (_page.IsCurrent)
                 {
                     Guard.Run("Messages", ReadMessages);
+                    // An older trainer that does not notice the page switch may turn its atlas on again
+                    if (_clock.ElapsedMilliseconds >= _nextAtlasCheck)
+                    {
+                        _nextAtlasCheck = _clock.ElapsedMilliseconds + 1000;
+                        Guard.Run("Atlas", ChaosPage.DropForeignOverlayState);
+                    }
                 }
                 else if (Ui.Ready || _menuOpen)
                 {

@@ -246,6 +246,7 @@ namespace StreamEmber.ChaosMod
             if (IsBlank(current))
             {
                 ChaosLog.Info("Opening " + _url);
+                DropForeignOverlayState();
                 OverlayBridge.LoadUrl(_url);
             }
             else if (Key(current) == _key)
@@ -267,7 +268,23 @@ namespace StreamEmber.ChaosMod
             string current = OverlayBridge.Url;
             if (Key(current) != _key) _previousUrl = current;
             ChaosLog.Info((reload ? "Reloading " : "Opening ") + _url + " (overlay showed " + (current ?? "nothing") + ")");
+            DropForeignOverlayState();
             if (!OverlayBridge.LoadUrl(_url, reload)) Hello();
+        }
+
+        private static readonly OverlaySprite[] NoSprites = new OverlaySprite[0];
+
+        /// <summary>
+        /// The chaos page uses no sprite atlas. The trainer's world tags make the overlay view taller than the screen
+        /// (the atlas sits below it); left on, the chaos page is laid out for that taller view and the menu is scaled
+        /// up past the screen edges. Turns the atlas off (and hides its sprites) whenever it is found on.
+        /// </summary>
+        public static void DropForeignOverlayState()
+        {
+            if (!OverlayBridge.GetAtlasLayout().IsEnabled) return;
+            ChaosLog.Info("Disabling the overlay sprite atlas left by another mod");
+            OverlayBridge.SubmitSprites(NoSprites, 0);
+            OverlayBridge.DisableAtlas();
         }
 
         /// <summary>The chaos page did not answer (broken page, or the MHud kit could not be loaded from the CDN):
