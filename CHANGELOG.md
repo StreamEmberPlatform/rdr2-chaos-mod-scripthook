@@ -4,6 +4,8 @@ Sürümler `VERSION` (major.minor) + commit sayısı (patch) ile otomatik verili
 Burada yalnız kayda değer değişiklikler tutulur.
 
 ## 1.0 (düzeltmeler)
+- **Menü sayfası artık modla birlikte kuruluyor** (`StreamEmber\UI\ChaosMod\`) ve oyun klasöründen açılıyor; GitHub
+  Pages kaldırıldı. Yalnız MHud kitinin css/js dosyaları jsDelivr CDN'inden. `ChaosMod.ini` → `UiUrl` boşsa yerel sayfa.
 - **Düzeltme:** menü açılıyor gibi olup hiçbir şey görünmüyordu. Overlay'de tek sayfa ve tek mesaj kuyruğu var; trainer
   da kuruluyken kaos modu trainer sayfasının `ready` mesajını alıp menüyü trainer sayfasında açmaya çalışıyordu. Artık
   her mod yalnız kendi sayfası açıkken mesaj okur/gönderir; F6 gerekirse kaos sayfasını yükler, sayfa `ready`

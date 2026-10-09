@@ -2,7 +2,8 @@
 //   ChaosPaths   <game>\StreamEmber\...
 //   ChaosLog     <game>\StreamEmber\Logs\ChaosMod.log, errors throttled
 //   ChaosConfig  <game>\StreamEmber\Config\ChaosMod.ini
-//   ChaosPage    the chaos page in the overlay (GitHub Pages, MHud kit from the CDN) and whether it is the current page
+//   ChaosPage    the chaos page in the overlay (installed with the mod in StreamEmber\UI\ChaosMod, MHud kit from the
+//                jsDelivr CDN) and whether it is the current page
 //   Guard        runs one part of a tick; an exception is logged and only that part is skipped
 using System;
 using System.Collections.Generic;
@@ -37,6 +38,9 @@ namespace StreamEmber.ChaosMod
 
         public static string ConfigFile => Path.Combine(Path.Combine(Root, "Config"), "ChaosMod.ini");
         public static string LogFile => Path.Combine(Path.Combine(Root, "Logs"), "ChaosMod.log");
+
+        /// <summary>&lt;game&gt;\StreamEmber\UI\ChaosMod\index.html: the menu page, installed with the mod.</summary>
+        public static string PageFile => Path.Combine(Path.Combine(Path.Combine(Root, "UI"), "ChaosMod"), "index.html");
     }
 
     internal static class ChaosLog
@@ -104,7 +108,7 @@ namespace StreamEmber.ChaosMod
 
     internal sealed class ChaosConfig
     {
-        /// <summary>Chaos page. Empty in the file = the published page.</summary>
+        /// <summary>Chaos page. Null (empty in the file) = the page installed with the mod (<see cref="ChaosPaths.PageFile"/>).</summary>
         public string UiUrl;
         public Keys MenuKey = Keys.F6;
         /// <summary>MHud theme of the page (frontier, oldwest, modern, neon, tactical, minimal).</summary>
@@ -115,9 +119,9 @@ namespace StreamEmber.ChaosMod
         /// <summary>Effects that write version-dependent script globals (honor). Off by default.</summary>
         public bool Experimental;
 
-        public static ChaosConfig Load(string defaultUiUrl)
+        public static ChaosConfig Load()
         {
-            var config = new ChaosConfig { UiUrl = defaultUiUrl };
+            var config = new ChaosConfig();
             try
             {
                 string path = ChaosPaths.ConfigFile;
@@ -176,20 +180,43 @@ namespace StreamEmber.ChaosMod
     {
         private readonly string _url;
         private readonly string _key;
+        private readonly string _file;   // local page file (null for an http(s) UiUrl)
         private bool _startChecked;
         private string _previousUrl;   // page shown before Claim, put back by Release
 
+        /// <param name="url">ChaosMod.ini UiUrl; null = the page installed with the mod</param>
         public ChaosPage(string url)
         {
-            // ?v= keeps the page and the script of one release together in caches
-            string version = ProductVersion;
-            _url = url.IndexOf('?') < 0 && url.StartsWith("http", StringComparison.OrdinalIgnoreCase) && version != null
-                ? url + "?v=" + Uri.EscapeDataString(version)
-                : url;
+            if (string.IsNullOrEmpty(url))
+            {
+                _file = ChaosPaths.PageFile;
+            }
+            else if (url.IndexOf("://", StringComparison.Ordinal) < 0 && !url.StartsWith("about:", StringComparison.OrdinalIgnoreCase))
+            {
+                // A file path, relative to <game>\StreamEmber like the overlay's own StartUrl
+                _file = Path.IsPathRooted(url) ? url : Path.Combine(ChaosPaths.Root, url.Replace('/', Path.DirectorySeparatorChar));
+            }
+
+            if (_file != null)
+            {
+                _url = new Uri(_file).AbsoluteUri;   // file:///D:/.../StreamEmber/UI/ChaosMod/index.html
+            }
+            else
+            {
+                // UI development server: ?v= keeps the page and the script of one build together in caches
+                string version = ProductVersion;
+                _url = url.IndexOf('?') < 0 && url.StartsWith("http", StringComparison.OrdinalIgnoreCase) && version != null
+                    ? url + "?v=" + Uri.EscapeDataString(version)
+                    : url;
+            }
             _key = Key(_url);
         }
 
         public string Url => _url;
+
+        /// <summary>False when the local page file is missing (incomplete install): loading it would show the
+        /// browser's opaque error page over the game.</summary>
+        public bool Available => _file == null || File.Exists(_file);
 
         public static string ProductVersion
         {
@@ -210,6 +237,11 @@ namespace StreamEmber.ChaosMod
         {
             if (_startChecked) return;
             _startChecked = true;
+            if (!Available)
+            {
+                ChaosLog.Warn("Chaos page missing: " + _file + " (reinstall the chaos mod)");
+                return;
+            }
             string current = OverlayBridge.Url;
             if (IsBlank(current))
             {
@@ -238,8 +270,8 @@ namespace StreamEmber.ChaosMod
             if (!OverlayBridge.LoadUrl(_url, reload)) Hello();
         }
 
-        /// <summary>The chaos page did not answer (not published: GitHub shows its own opaque 404 page over the
-        /// game, or no network): put back the page shown before <see cref="Claim"/>, or a blank one.</summary>
+        /// <summary>The chaos page did not answer (broken page, or the MHud kit could not be loaded from the CDN):
+        /// put back the page shown before <see cref="Claim"/>, or a blank one, so nothing is left over the game.</summary>
         public void Release()
         {
             if (!IsCurrent) return;
@@ -263,6 +295,8 @@ namespace StreamEmber.ChaosMod
         {
             if (string.IsNullOrEmpty(url)) return string.Empty;
             string key = url.Trim();
+            try { key = Uri.UnescapeDataString(key); } catch (Exception) { }   // %20 vs space in file URLs
+            key = key.Replace('\\', '/');
             int cut = key.IndexOfAny(new[] { '?', '#' });
             if (cut >= 0) key = key.Substring(0, cut);
             key = key.TrimEnd('/');

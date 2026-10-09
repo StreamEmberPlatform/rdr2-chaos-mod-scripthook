@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!-- StreamEmber Chaos Mod (RDR2): a StreamEmber Runtime script with an MHud menu page in the
-       StreamEmber Overlay. Installed into <game>\StreamEmber\Scripts (build.ps1). The page itself is published to
-       GitHub Pages (web/), not installed. -->
+       StreamEmber Overlay. Installed into <game>\StreamEmber\Scripts (build.ps1); the page (web/) is installed into
+       <game>\StreamEmber\UI\ChaosMod. -->
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
     <PlatformTarget>x64</PlatformTarget>

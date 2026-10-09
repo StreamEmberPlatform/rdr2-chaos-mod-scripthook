@@ -1,14 +1,13 @@
-# StreamEmber Chaos Mod (RDR2) — derleme, paket, otomatik release ve sayfa yayını.
+# StreamEmber Chaos Mod (RDR2) — derleme, paket ve otomatik release.
 #
 #   pull request / diğer dallar  → derle, paket artifact olarak yüklenir (sürüm 1.0.N-ci.<run>)
-#   main'e her push              → derle, v1.0.N etiketi ve GitHub Release (StreamEmber.ChaosMod.RDR2-1.0.N.zip + sha256),
-#                                  web/ klasörü GitHub Pages'e yayınlanır:
-#                                  https://streamemberplatform.github.io/rdr2-chaos-mod-scripthook/
+#   main'e her push              → derle, v1.0.N etiketi ve GitHub Release (StreamEmber.ChaosMod.RDR2-1.0.N.zip + sha256)
+#
+# Menü sayfası (web/) pakete girer (StreamEmber/UI/ChaosMod/) ve oyun klasöründen açılır; yalnız MHud kiti CDN'den gelir.
 #
 # Derleme başvuruları (pakete girmez): StreamEmber.Scripting.RDR2.dll ve StreamEmber.Overlay.Bridge.dll, kendi
 # repolarımızın (rdr2-runtime-scripthook, ui-runtime) SON release'inden indirilir ve sha256 ile doğrulanır.
 # Kaos modu StreamEmber Runtime (RDR2) 1.1 API'sine ihtiyaç duyar: runtime'ın v1.1.x release'i çıkmadan derleme hata verir.
-# Sayfa için bir kez: Settings > Pages > Build and deployment > Source = "GitHub Actions".
 #
 # Sürüm: VERSION dosyası (major.minor) + o dosyanın son değiştiği commit'ten bu yana commit sayısı (patch).
 # Minör/majör artırmak = VERSION'ı değiştirip pushlamak (o commit x.y.0 olur). Ayrıntı: tools/StreamEmber.Build.psm1
@@ -82,7 +81,8 @@ jobs:
         run: |
           $stage = 'dist/RDR2'
           $expected = @('StreamEmber/Scripts/StreamEmber.ChaosMod.RDR2.dll', 'StreamEmber/Config/ChaosMod.ini',
-                        'StreamEmber/Manifests/StreamEmber.ChaosMod.RDR2.json')
+                        'StreamEmber/UI/ChaosMod/index.html', 'StreamEmber/UI/ChaosMod/chaos.js',
+                        'StreamEmber/UI/ChaosMod/chaos.css', 'StreamEmber/Manifests/StreamEmber.ChaosMod.RDR2.json')
           foreach ($f in $expected) { if (-not (Test-Path (Join-Path $stage $f))) { throw "Pakette yok: $f" } }
           $unwanted = Get-ChildItem $stage -Recurse -File | Where-Object {
             $_.Extension -in '.pdb', '.xml' -or $_.Name -in 'StreamEmber.Overlay.Bridge.dll', 'StreamEmber.Scripting.RDR2.dll' }
@@ -137,27 +137,3 @@ jobs:
             artifacts/*.zip
             artifacts/*.sha256
 
-  pages:
-    needs: build
-    if: needs.build.outputs.release == 'true'
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    concurrency:
-      group: pages
-      cancel-in-progress: true
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/configure-pages@v6
-      - name: Sayfa sürümü
-        run: echo "${{ needs.build.outputs.version }}" > web/version.txt
-      - uses: actions/upload-pages-artifact@v5
-        with:
-          path: web
-      - id: deployment
-        uses: actions/deploy-pages@v5

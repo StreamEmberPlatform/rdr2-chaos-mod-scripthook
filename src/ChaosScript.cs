@@ -26,8 +26,6 @@ namespace StreamEmber.ChaosMod
 {
     public sealed class ChaosScript : Script
     {
-        public const string DefaultUiUrl = "https://streamemberplatform.github.io/rdr2-chaos-mod-scripthook/";
-
         private readonly ChaosConfig _config;
         private readonly ChaosPage _page;
         private readonly EffectRegistry _registry = new EffectRegistry();
@@ -46,7 +44,7 @@ namespace StreamEmber.ChaosMod
 
         public ChaosScript()
         {
-            _config = ChaosConfig.Load(DefaultUiUrl);
+            _config = ChaosConfig.Load();
             _page = new ChaosPage(_config.UiUrl);
             PlayerEffects.Register(_registry);
             PedEffects.Register(_registry);
@@ -252,6 +250,12 @@ namespace StreamEmber.ChaosMod
                 SetMenu(true);
                 return;
             }
+            if (!_page.Available)
+            {
+                ChaosLog.Warn("Menu key pressed, chaos page missing: " + _page.Url);
+                RDR2.UI.Screen.DisplaySubtitle("Kaos Modu: menü dosyası bulunamadı (StreamEmber\\UI\\ChaosMod). Modu yeniden kurun.");
+                return;
+            }
             // Page not shown (another script's page or still blank) or it never answered: open it, then the menu
             _page.Claim(_page.IsCurrent && _pageTimedOut);
             _openPending = true;
@@ -265,10 +269,10 @@ namespace StreamEmber.ChaosMod
             _openPending = false;
             _pageTimedOut = true;
             ChaosLog.Warn("The chaos page did not answer within " + OpenTimeoutMs / 1000 + " s: " + _page.Url +
-                          " (overlay URL " + OverlayBridge.Url + "). Is GitHub Pages published and the network up?");
-            // An unpublished page is GitHub's opaque 404 page: do not leave it over the game
+                          " (overlay URL " + OverlayBridge.Url + "). The MHud kit comes from cdn.jsdelivr.net: is the network up?");
+            // Whatever is shown instead (an error page) must not stay over the game
             _page.Release();
-            RDR2.UI.Screen.DisplaySubtitle("Kaos Modu: menü sayfası yüklenemedi. İnternet bağlantısını ve sayfanın yayında olduğunu kontrol edin (ayrıntı: ChaosMod.log).");
+            RDR2.UI.Screen.DisplaySubtitle("Kaos Modu: menü yüklenemedi. MHud CDN'den gelir, internet bağlantısını kontrol edin (ayrıntı: ChaosMod.log).");
         }
 
         private bool IsGameFocused()

@@ -2,15 +2,15 @@
 
 Red Dead Redemption 2 için kaos modu: [ChaosModRDR](https://github.com/clixff/ChaosModRDR)'nin (clixff) **187 efektinin
 tamamı** C# ile, StreamEmber Runtime üzerinde çalışan bir script (`StreamEmber.ChaosMod.RDR2.dll`) ve StreamEmber
-Overlay'de açılan bir MHud menüsü. Menü oyuna kurulmaz: bu reponun `web/` klasörü GitHub Pages'te yayınlanır
-(**https://streamemberplatform.github.io/rdr2-chaos-mod-scripthook/**), MHud kiti jsDelivr CDN'inden gelir
-(`@streamemberplatform/mhud@1.3.0`).
+Overlay'de açılan bir MHud menüsü. Menü sayfası (`web/`) modla birlikte oyun klasörüne kurulur
+(`StreamEmber\UI\ChaosMod\`) ve oradan açılır; yalnız MHud kitinin css/js dosyaları jsDelivr CDN'inden gelir
+(`@streamemberplatform/mhud@1.3.0`). Herhangi bir web sitesine/GitHub Pages'e bağlı değildir.
 
 ```text
 RDR2.exe
  ├─ StreamEmber.Runtime.RDR2.asi ─► StreamEmber\Scripts\StreamEmber.ChaosMod.RDR2.dll   (bu repo, src/)
  │                                     │ OverlayBridge.LoadUrl(sayfa) · Send/TryReceive (menü mesajları)
- └─ StreamEmber.Overlay.RDR2.asi  ─► StreamEmber\Overlay\ (CEF) ─► https://streamemberplatform.github.io/rdr2-chaos-mod-scripthook/
+ └─ StreamEmber.Overlay.RDR2.asi  ─► StreamEmber\Overlay\ (CEF) ─► StreamEmber\UI\ChaosMod\index.html (+ MHud, CDN)
 ```
 
 ## Kullanım
@@ -82,8 +82,7 @@ Başvurular (pakete girmez): `StreamEmber.Scripting.RDR2.dll` ve `StreamEmber.Ov
 repolardan (`..\rdr2-runtime-scripthook\bin\Release`, `..\ui-runtime\build\managed`), CI'da o repoların son
 release'lerinden alınır. Sayfayı tarayıcıda denemek için: `web/index.html?demo=1`.
 
-GitHub Actions: her push derlenir; `main`'e her push bir release (zip + sha256) ve sayfanın GitHub Pages yayını olur.
-Sayfa için bir kez: *Settings > Pages > Build and deployment > Source = "GitHub Actions"*.
+GitHub Actions: her push derlenir; `main`'e her push bir release (zip + sha256) olur. Menü sayfası pakettedir.
 
 ## Lisans
 

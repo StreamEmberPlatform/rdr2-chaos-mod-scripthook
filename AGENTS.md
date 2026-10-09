@@ -16,5 +16,6 @@
 - Kullanıcıya görünen metinler Türkçe; kod, tanımlayıcılar ve kod yorumları İngilizce.
 - `src/Common/Json.cs` ve `Ui.cs` trainer repolarındakiyle aynıdır; `tools/StreamEmber.Build.psm1` tüm StreamEmber
   repolarında aynı dosyadır.
-- Paket: `StreamEmber\Scripts\StreamEmber.ChaosMod.RDR2.dll`, `StreamEmber\Config\ChaosMod.ini`, manifest. Sayfa
-  (`web/`) GitHub Pages'te yayınlanır; MHud kiti jsDelivr'den.
+- Paket: `StreamEmber\Scripts\StreamEmber.ChaosMod.RDR2.dll`, `StreamEmber\Config\ChaosMod.ini`,
+  `StreamEmber\UI\ChaosMod\` (web/ sayfası), manifest. Sayfa oyun klasöründen açılır; yalnız MHud kiti jsDelivr'den.
+  GitHub Pages ya da başka bir barındırma yok.

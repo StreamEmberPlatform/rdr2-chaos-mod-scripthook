@@ -12,9 +12,9 @@
     4. dist\RDR2\ = the game-folder layout, then artifacts\StreamEmber.ChaosMod.RDR2-<version>.zip (+ .sha256):
          StreamEmber\Scripts\StreamEmber.ChaosMod.RDR2.dll
          StreamEmber\Config\ChaosMod.ini
+         StreamEmber\UI\ChaosMod\index.html, chaos.css, chaos.js, MHUD-LICENSE.txt   (the menu page, from web\)
          StreamEmber\Manifests\StreamEmber.ChaosMod.RDR2.json
-       The page (web\) is not part of the package: CI publishes it to GitHub Pages and the chaos mod opens it in the
-       overlay. dist\site\ is a copy of it for a local preview.
+       The chaos mod opens the page from the game folder; only the MHud kit (css/js) comes from the jsDelivr CDN.
     5. -Deploy: copies dist\RDR2 into the game folder (keeps ChaosMod.ini).
 
 .EXAMPLE
@@ -84,9 +84,11 @@ $stage = Join-Path $Root "dist\$Game"
 if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
 $scriptsDir = Join-Path $stage 'StreamEmber\Scripts'
 $configDir = Join-Path $stage 'StreamEmber\Config'
-New-Item -ItemType Directory -Force -Path $scriptsDir, $configDir | Out-Null
+$uiDir = Join-Path $stage 'StreamEmber\UI\ChaosMod'
+New-Item -ItemType Directory -Force -Path $scriptsDir, $configDir, $uiDir | Out-Null
 Copy-Item (Join-Path $out "$Id.dll") $scriptsDir
 Copy-Item (Join-Path $Root 'package\Config\ChaosMod.ini') $configDir
+foreach ($f in 'index.html', 'chaos.css', 'chaos.js', 'MHUD-LICENSE.txt') { Copy-Item (Join-Path $Root "web\$f") $uiDir }
 
 New-SEManifest -StageDirectory $stage -Id $Id -Name 'StreamEmber Chaos Mod (RDR2)' -Version $Version -Game $Game `
     -Preserve $Preserve -Conflicts $Conflicts -RepositoryRoot $Root `
@@ -96,11 +98,6 @@ New-SEManifest -StageDirectory $stage -Id $Id -Name 'StreamEmber Chaos Mod (RDR2
 
 $zip = New-SEPackage -StageDirectory $stage -OutputDirectory (Join-Path $Root 'artifacts') -Id $Id -Version $Version
 Write-Host "Package: $zip" -ForegroundColor Green
-
-# Page preview (what GitHub Pages serves)
-$site = Join-Path $Root 'dist\site'
-if (Test-Path $site) { Remove-Item $site -Recurse -Force }
-Copy-Item (Join-Path $Root 'web') $site -Recurse
 
 # --- Install ----------------------------------------------------------------------------------------------------
 if ($Deploy) {
